@@ -1,0 +1,81 @@
+/*body {*/
+  /*padding: 50px;*/
+  /*font: 14px "Lucida Grande", Helvetica, Arial, sans-serif;*/
+/*}*/
+
+/*a {*/
+  /*color: #00B7FF;*/
+/*}*/
+html, body {
+  height: 100%;
+}
+
+/*.row {*/
+  /*height: 100%;*/
+  /*overflow-y: hidden; !* don't show content that exceeds my height *!*/
+/*}*/
+
+.container-fluid {
+  padding-right: 0px;
+  padding-left: 0px;
+}
+
+.row {
+  margin-right: 0px;
+  margin-left: 0px;
+}
+
+.row.bg-success {
+  padding-left: 15px;
+}
+
+.col-md-8 {
+  padding-right: 0px;
+  padding-left: 0px;
+}
+
+.col-md-4 {
+  padding-right: 0px;
+  padding-left: 0px;
+}
+
+.col-sm-12 {
+  padding-right: 0px;
+  padding-left: 0px;
+}
+
+.form-group {
+  margin-bottom: 5px;
+}
+
+#map {
+  height: 100%;
+}
+
+
+.legend li {
+    margin-bottom: 5px;
+    margin-top: 5px;
+}
+
+.legend ul{
+    list-style:none;
+}
+
+
+.info {
+    padding: 6px 8px;
+    font: 14px/16px Arial, Helvetica, sans-serif;
+    background: white;
+    background: rgba(255,255,255,0.8);
+    box-shadow: 0 0 15px rgba(0,0,0,0.2);
+    border-radius: 5px;
+}
+.info h4 {
+    margin: 0 0 5px;
+    color: #777;
+}
+
+#result_table_filter{
+    align-content: center;
+}

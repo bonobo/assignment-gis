@@ -1,0 +1,342 @@
+extends layout
+block content
+    .h-100.container-fluid
+        .h-100.row
+            .col-md-4
+                .row.bg-success
+                    h3='Nájdi kopec'
+                .row
+                    .col-md-12.text-center
+                        h5='Moja poloha'
+                .row
+                    .col-md-6
+                        h6='Lat: '
+                            span.badge.badge-success#lat_val=''
+                    .col-md-6
+                        h6='Lon: '
+                            span.badge.badge-success#lon_val=''
+                .row.text-center
+                    .col-md-6
+                        button(type='button', class='btn btn-success btn-sm', style='margin-top:3px', onclick='moveToSelected()')='Vycentrovať'
+                    .col-md-6
+                        button(type='button', class='btn btn-danger btn-sm', style='margin-top:3px', onclick='resetSelected()')='Resetovať'
+                .row
+                    .col-md-12.text-center
+                        h5='Vyhľadávanie'
+                .row
+                    .col-md-12
+                        form(id='search_form')
+                            .form-group
+                                label(for='perimeter')='Vo vzdialenosti'
+                                input(type='number', min=0, placeholder='Vzdialenosť v metroch', aria-describedby='perimeterHelp', id='perimeter', class='form-control', name='dist')
+                                small(id='perimeterHelp', class='form-text text-muted')='Nutné mať vybranú "Moju polohu" na mape.'
+                            .form-group
+                                label='Oblasť:'
+                                | &nbsp;
+                                .form-check-inline
+                                    label(class='form-check-label', for='reg_all' data-toggle="tooltip" data-placement="top" title="Kopce nachádzajúce sa hocikde na mape.")
+                                        input(type='checkbox', class='form-check-input', value='all', id='reg_all', name='regions')
+                                        | Všade&nbsp&nbsp;
+                                    label(class='form-check-label', for='reg_np' data-toggle="tooltip" data-placement="top" title="Kopce nachádzajúce sa vo všetkých národných parkoch.")
+                                        input(type='checkbox', class='form-check-input', value='national_park', id='reg_np', name='regions')
+                                        | Národné parky&nbsp&nbsp;
+                                    label(class='form-check-label', for='reg_border' data-toggle="tooltip" data-placement="top" title="Kopce nachádzajúce sa vo vzdialenosti do 200m od štatných hraníc.")
+                                        input(type='checkbox', class='form-check-input', value='border', id='reg_border', name='regions')
+                                        | Štátne hranice&nbsp&nbsp;
+                                    label(class='form-check-label', for='reg_roads' data-toggle="tooltip" data-placement="top" title="Kopce nachádzajúce sa vo vzdialenosti do 2km od ciest.")
+                                        input(type='checkbox', class='form-check-input', value='park_roads', id='reg_roads', name='regions')
+                                        | V blízkosti ciest v NP
+                            .form-group
+                                label(for='multiSelect')='Vybrané národné parky'
+                                select(multiple class='form-control', id='multiSelect', aria-describedby='multiHelp', name='regions')
+                                    each val in npArea
+                                        option(value=val.name, class='multiOpt')= val.name + ' - ' + val.area + 'km²'
+                                small(id='multiHelp', class='form-text text-muted')='Pre výber viacerých: Shift + klik'
+                            button(type='submit' class='btn btn-primary')='Vyhľadať'
+
+                script.
+                    var myData = !{JSON.stringify(jsonData)};
+                    var paramCache = !{JSON.stringify(paramCache)};
+                    var npArea = !{JSON.stringify(npArea)};
+
+                    var tableData = [];
+                    for (key in myData.features) {
+                        var props = myData.features[key].properties;
+                        var point = myData.features[key].geometry.coordinates;
+                        tableData.push([props.f1, props.f2, point]);
+                    }
+
+                    function setMarkers(markerFn) {
+                        map.eachLayer(function (layer) {
+                            if (((layer || {}).feature || {}).geometry && layer !== my_pos_marker) {
+                                markerFn(layer);
+                            }
+                        })
+                    };
+
+                    $(document).ready(function () {
+                        $('[data-toggle="tooltip"]').tooltip()
+
+                        var table = $('#result_table').DataTable({
+                            data: tableData,
+                            columns: [{title: "Názov"}, {title: "Nadmorská výška (m.n.m.)"}],
+                            paging: false,
+                            info: false,
+                            scrollY: '43vh',
+                            scrollCollapse: true,
+                            searching: false,
+                            select: 'single'
+                        });
+
+                        function rowOperation(layer) {
+                            var rowData = table.row({selected: true}).data();
+                            if (rowData) {
+                                if (rowData[2] === layer.feature.geometry.coordinates) {
+                                    layer.setIcon(L.icon({
+                                        iconUrl: '/images/peak_marker_current.png',
+                                        iconSize: [33, 33],
+                                        iconAnchor: [17, 35],
+                                        popupAnchor: [0, -34]
+                                    }));
+                                    layer.setOpacity(1);
+                                    map.flyTo(layer.getLatLng(), 14);
+                                } else {
+                                    if (my_pos_marker) {
+                                        markerByDistance(layer.feature, layer, 0.45, true);
+                                    } else {
+                                        markerByDistance(layer.feature, layer, 0.45, false);
+                                    }
+                                }
+                            } else {
+                                if(my_pos_marker) {
+                                    markerByDistance(layer.feature, layer, 1, true);
+                                } else {
+                                    markerByDistance(layer.feature, layer, 1, false);
+                                }
+                                map.fitBounds(jsonLayer.getBounds());
+                            }
+                        }
+
+
+                        table.on('select deselect', function () {
+                            setMarkers(rowOperation);
+                        });
+
+                        if (!jQuery.isEmptyObject(paramCache)) {
+                            if (paramCache.lat !== '' && paramCache.lon) {
+                                $('#lat_val').text(paramCache.lat);
+                                $('#lon_val').text(paramCache.lon);
+                                my_pos_marker = L.marker(L.latLng(Number(paramCache.lat), Number(paramCache.lon)), {icon: my_pos_icon});
+                                my_pos_marker.addTo(map);
+                                moveToSelected();
+                            }
+
+                            if (paramCache.dist !== '') {
+                                $('#perimeter').val(Number(paramCache.dist));
+                            }
+
+                            if (paramCache.regions === 'all') {
+                                $('#reg_all').prop('checked', true);
+                            } else if (paramCache.regions === 'national_park') {
+                                $('#reg_np').prop('checked', true);
+                            } else if (paramCache.regions === 'border') {
+                                $('#reg_border').prop('checked', true);
+                            } else if (paramCache.regions === 'park_roads') {
+                                $('#reg_roads').prop('checked', true);
+                            } else if (paramCache.regions !== '') {
+                                $('#multiSelect').val(paramCache.regions.split(','));
+                            }
+                        }
+
+                        regions_toggle();
+                    });
+
+                    $('#search_form').on('submit', function (e) {
+                        e.preventDefault();
+
+                        var reg_all = $('#reg_all');
+                        var reg_np = $('#reg_np');
+                        var reg_border = $('#reg_border');
+                        var reg_roads = $('#reg_roads');
+                        var regions_checkbox = reg_all.is(':checked') ? reg_all.val() : (reg_np.is(':checked') ? reg_np.val() : (reg_border.is(':checked') ? reg_border.val() : (reg_roads.is(':checked') ? reg_roads.val() : undefined)));
+                        var regions = $('#multiSelect').val();
+
+                        if (regions_checkbox) {
+                            regions.push(regions_checkbox);
+                        }
+                        regions = regions.join(',');
+
+                        var multiName = $('#multiSelect').attr('name');
+
+                        window.location = 'map?lat=' + $("#lat_val").text() +
+                            '&lon=' + $('#lon_val').text() +
+                            '&dist=' + $('#perimeter').val() +
+                            '&' + multiName + '=' + regions;
+                    });
+
+                    function regions_toggle() {
+                        // console.log('toggle');
+                        var reg_all = $('#reg_all').is(':checked');
+                        var reg_np = $('#reg_np').is(':checked');
+                        var reg_border = $('#reg_border').is(':checked');
+                        var reg_roads = $('#reg_roads').is(':checked');
+
+                        if (reg_all) {
+                            $('#reg_np').prop('disabled', reg_all);
+                            $('#reg_border').prop('disabled', reg_all);
+                            $('#reg_roads').prop('disabled', reg_all);
+                            $('option.multiOpt').prop('disabled', reg_all);
+                        } else if (reg_np) {
+                            $('#reg_all').prop('disabled', reg_np);
+                            $('#reg_border').prop('disabled', reg_np);
+                            $('#reg_roads').prop('disabled', reg_np);
+                            $('option.multiOpt').prop('disabled', reg_np);
+                        } else if (reg_border) {
+                            $('#reg_all').prop('disabled', reg_border);
+                            $('#reg_np').prop('disabled', reg_border);
+                            $('#reg_roads').prop('disabled', reg_border);
+                            $('option.multiOpt').prop('disabled', reg_border);
+                        } else if(reg_roads) {
+                            $('#reg_all').prop('disabled', reg_roads);
+                            $('#reg_np').prop('disabled', reg_roads);
+                            $('#reg_border').prop('disabled', reg_roads);
+                            $('option.multiOpt').prop('disabled', reg_roads);
+                        } else {
+                            $('option.multiOpt').prop('disabled', false);
+                            $('#reg_all').prop('disabled', false);
+                            $('#reg_np').prop('disabled', false);
+                            $('#reg_border').prop('disabled', false);
+                            $('#reg_roads').prop('disabled', false);
+                        }
+                    };
+
+                    $('#reg_all').on('click', function () {
+                        regions_toggle()
+                    });
+                    $('#reg_np').on('click', function () {
+                        regions_toggle()
+                    });
+                    $('#reg_border').on('click', function () {
+                        regions_toggle()
+                    });
+                    $('#reg_roads').on('click', function () {
+                        regions_toggle()
+                    });
+
+                table(class='table table-dark table-hover', id='result_table' style="width:100%")
+
+            .col-md-8
+                #map
+                script.
+                    var legend = L.control({position: 'bottomright'});
+                    legend.onAdd = function () {
+
+                        var div = L.DomUtil.create('div', 'info legend');
+
+                        div.innerHTML += '<p><b>Vzdialenosť od mojej polohy</b></p>' +
+                            '<ul>' +
+                            '<li><img src="/images/peak_marker_green.png" height="25" width="25">&nbsp;< 5 km</li>' +
+                            '<li><img src="/images/peak_marker_orange.png" height="25" width="25">&nbsp;5 km &ndash; 10 km</li>' +
+                            '<li><img src="/images/peak_marker_red.png" height="25" width="25">&nbsp;> 10 km</li>'
+                        '</ul>'
+                        return div;
+                    };
+
+                    var my_pos_icon = L.icon({
+                        iconUrl: '/images/my_pos_marker.png',
+                        iconSize: [45, 45]
+                    });
+
+                    var my_pos_marker = undefined;
+
+                    // Create variable to hold map element, give initial settings to map
+                    var map = L.map('map', {center: [49.071061, 22.401719], zoom: 10});
+                    // Add OpenStreetMap tile layer to map element
+                    L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
+                        attribution: '© OpenStreetMap'
+                    }).addTo(map);
+                    // Add JSON to map
+                    if (myData.features != null) {
+                        var jsonLayer = L.geoJson(myData, {
+                            onEachFeature: function (feature, layer) {
+                                layer.bindPopup(feature.properties.f1 + '<br/>' + feature.properties.f2 + ' m.n.m');
+                                markerByDistance(feature, layer, 1, true);
+                            }
+                        }).addTo(map);
+
+                        map.fitBounds(jsonLayer.getBounds());
+                    }
+
+                    function onMapClick(e) {
+                        $("#lat_val").text(e.latlng.lat);
+                        $("#lon_val").text(e.latlng.lng);
+                        if (my_pos_marker) {
+                            map.removeLayer(my_pos_marker);
+                        }
+                        if(!$('#perimeter').val()) {
+                            $('#perimeter').val(5000);
+                        }
+                        my_pos_marker = L.marker(e.latlng, {icon: my_pos_icon});
+                        my_pos_marker.addTo(map);
+                    };
+
+                    function moveToSelected() {
+                        if (my_pos_marker) {
+                            map.flyTo(my_pos_marker.getLatLng(), 12);
+                        }
+                    };
+
+                    function resetSelected() {
+                        $('#multiSelect').val(undefined);
+                        $('#perimeter').val(undefined);
+                        $("#lat_val").text('');
+                        $("#lon_val").text('');
+
+                        if (my_pos_marker) {
+                            map.removeLayer(my_pos_marker);
+                            my_pos_marker = undefined;
+                        }
+
+                        legend.remove();
+                        $('#result_table').DataTable().rows({selected: true}).deselect();
+
+                        function resetIcon(layer) {
+                            layer.setIcon(L.icon({
+                                iconUrl: '/images/peak_marker_basic.png',
+                                iconSize: [33, 33],
+                                iconAnchor: [17, 35],
+                                popupAnchor: [0, -34]
+                            }));
+                            layer.setOpacity(1);
+                        }
+
+                        setMarkers(resetIcon);
+                        map.fitBounds(jsonLayer.getBounds());
+                    }
+
+                    function markerByDistance(feature, layer, opacity, showByDist) {
+                        var iconUrl = '/images/peak_marker_basic.png';
+                        if(((feature || {}).properties || {}).f3 && showByDist) {
+                            legend.addTo(map);
+                            var distance = feature.properties.f3;
+
+                            if (distance < 5000) {
+                                iconUrl = '/images/peak_marker_green.png';
+                            } else if (distance < 10000) {
+                                iconUrl = '/images/peak_marker_orange.png';
+                            } else {
+                                iconUrl = '/images/peak_marker_red.png'
+                            }
+                        } else {
+                            legend.remove();
+                        }
+                        layer.setIcon(L.icon({
+                            iconUrl: iconUrl,
+                            iconSize: [33, 33],
+                            iconAnchor: [17, 35],
+                            popupAnchor: [0, -34]
+                        }));
+                        layer.setOpacity(opacity);
+                    }
+
+                    map.on('click', onMapClick);
