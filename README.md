@@ -18,10 +18,25 @@ Build a map-based application, which lets the user see geo-based data on a map a
 
 ## My project
 
-Fill in (either in English, or in Slovak):
+**Application description**: Aplikácia umožňuje vo vybraných oblastiach vyhľadávať kopce. Používateľ má možnosť vyhľadávať kopce všeobecne,
+ alebo podľa vybraných filtrov (napr. v národných parkoch). Používateľ má možnosť vybrať svoju polohu na mape a vyhľadávať tak kopce v definovanom okolí.
 
-**Application description**: `<fill in>`
+**Data source**: [Open Street Maps](https://www.openstreetmap.org/)
 
-**Data source**: `<fill in>`
-
-**Technologies used**: `<fill in>`
+**Technologies used**:
+  * BE:
+    * [Node.js](https://nodejs.org/en/)
+    * [Express](https://expressjs.com/)
+  * FE:
+    * [Pug.js](https://pugjs.org)
+    * [Bootstrap](https://getbootstrap.com/)
+    * [Leaflet](https://leafletjs.com/)
+    * [DataTables](https://datatables.net/)
+  * DB:
+    * [PostgreSQL](https://www.postgresql.org/)
+    * [PostGIS](https://postgis.net/)
+    * [Node Postgres](https://node-postgres.com/)
+    * [yesql](https://www.npmjs.com/package/yesql)
+  * Ops:
+    * [Docker](https://www.docker.com/)
+  

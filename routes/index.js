@@ -12,7 +12,7 @@ const pool = new Pool({
     port: 5432
 });
 
-function peaks_for_leaflet(withDist, query) {
+function peaksForLeaflet(withDist, query) {
     if (withDist) {
         return `
     SELECT row_to_json(fc)
@@ -35,7 +35,7 @@ function peaks_for_leaflet(withDist, query) {
 const distanceCondition = `AND ST_Distance_Spheroid(ST_Centroid(p.geom), ST_SetSRID(ST_Point(:lon, :lat),4326), 'SPHEROID["WGS 84",6378137,298.257223563]') < :dist`;
 
 function buildQuery(withDist, baseQuery, values = {}) {
-    return withDist ? named(peaks_for_leaflet(withDist, baseQuery(distanceCondition)))(values) : named(peaks_for_leaflet(withDist, baseQuery()))(values);
+    return withDist ? named(peaksForLeaflet(withDist, baseQuery(distanceCondition)))(values) : named(peaksForLeaflet(withDist, baseQuery()))(values);
 }
 
 const defaultPeaksQuery = (maybeDist = '') => {

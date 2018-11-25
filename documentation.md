@@ -1,62 +1,147 @@
-*This is a documentation for a fictional project, just to show you what I expect. Notice a few key properties:*
-- *no cover page, really*
-- *no copy&pasted assignment text*
-- *no code samples*
-- *concise, to the point, gets me a quick overview of what was done and how*
-- *I don't really care about the document length*
-- *I used links where appropriate*
+# Prehľad
 
-# Overview
+Vytvorená aplikácia na mape znázorňuje kopce z prevažnej časti východného Slovenska, malej časti Ukrajiny a Poľska.
 
-This application shows hotels in Bratislava on a map. Most important features are:
-- search by proximity to my current location
-- search by hotel name
-- intelligent ordering - by proximity and by hotel features
-- hotels on the map are color coded by their quality assigned in stars (standard)
+Kľúčové vlastnosti:
+- vyhľadávanie kopcov v rôznych kontextoch
+    - v celej dostupnej oblasti
+    - v národných parkoch
+    - v konkrétnych národných parkoch
+    - v národných parkoch dostupných autom/bicyklom
+    - kopce nachádzajúce sa na resp. v blízkosti (do 200m) štatných hraníc
+- možnosť výberu aktuálnej polohy a definovanie perimetra prehľadávania v metroch
+    - farebné odlíšenie kopcov vzhľadom na vybranú vzdialenosť používateľa + legenda
+    - kombinácia s predchádzajúcimi možnosťami filtra oblastí
+- prehľadné zobrazenie nájdených kopcov v interaktívnej tabuľke
+    - po kliknutí na riadok tabuľky je pohľad automaticky presunutý na vybraný kopec, ktorý je aj farebne odlíšený
+- tooltip s názvom kopca a jeho nadmorskou výškou
+- informácia o rozlohe národných parkov v km²
 
-This is it in action:
+Aplikácia je logicky rozdelená na 2 časti. Klientská časť predstavuje webovú aplikáciu pričom hlavnou časťou FE je [Leaflet](https://leafletjs.com/) mapový komponent.
+Backend je vytvorený pomocou minimalistického web-frameworku [Express.js](https://expressjs.com/) určeného pre [Node.js](https://nodejs.org/en/).
+GEO dáta sú uložené v [PostGIS](https://postgis.net/) a komunikáciu medzi [BE](#backend--be) a [FE](#frontend--fe) zabezpečuje [REST API](#api--api).
 
-![Screenshot](screenshot.png)
+*Pohľad na základné filtrovanie podľa oblasti* 
 
-The application has 2 separate parts, the client which is a [frontend web application](#frontend) using mapbox API and mapbox.js and the [backend application](#backend) written in [Rails](http://rubyonrails.org/), backed by PostGIS. The frontend application communicates with backend using a [REST API](#api).
+![Základný pohľad](pdt_basic.png)
 
-# Frontend
+*Vyhľadávanie zohľadňujúce vybranú lokalitu* 
 
-The frontend application is a static HTML page (`index.html`), which shows a mapbox.js widget. It is displaying hotels, which are mostly in cities, thus the map style is based on the Emerald style. I modified the style to better highlight main sightseeing points, restaurants and bus stops, since they are all important when selecting a hotel. I also highlighted rails tracks to assist in finding a quiet location.
+![Vyhľadávanie podľa polohy](pdt_location.png)
 
-All relevant frontend code is in `application.js` which is referenced from `index.html`. The frontend code is very simple, its only responsibilities are:
-- detecting user's location, using the standard [web location API](https://developer.mozilla.org/en-US/docs/Web/API/Geolocation/Using_geolocation)
-- displaying the sidebar panel with hotel list and filtering controls, driving the user interaction and calling the appropriate backend APIs
-- displaying geo features by overlaying the map with a geojson layer, the geojson is provided directly by backend APIs
+# Frontend # {#fe}
 
-# Backend
+Webová aplikácia je napísaná z prevažnej časti pomocou šablónovacieho nástroja [Pug.js](https://pugjs.org), ktorý následne vygeneruje HTML, ktoré využíva štýl a komponenty z [Bootstrap](https://getbootstrap.com/).
+V HTML sa ďalej nachádzajú kúsky JS a jQuery, ktoré sa starajú o validáciu a lepšiu interaktívnosť/použiteľnosť aplikácie.
+Na zobrazenie výsledkov vyhľadávania sú použité [DataTables](https://datatables.net/).
 
-The backend application is written in Ruby on Rails and is responsible for querying geo data, formatting the geojson and data for the sidebar panel.
+O zobrazovanie vyhľadaných GEO dát sa stará [Leaflet](https://leafletjs.com/). Použil som mapovú vrstvu z [OpenStreetMap](https://www.openstreetmap.org), ktorej štýl
+bol rozšírený o vlastné značky aktuálnej polohy, značky kopcov spolu s legendou, ktoré sú farebne odlíšené pri vyhľadávaní vzhľadom na vybranú lokalitu.
 
-## Data
+Všetko spomenuté a relevantné sa nachádza v súbore [map.pug](views/map.pug).
 
-Hotel data is coming directly from Open Street Maps. I downloaded an extent covering whole Slovakia (around 1.2GB) and imported it using the `osm2pgsql` tool into the standard OSM schema in WGS 84 with hstore enabled. To speedup the queries I created an index on geometry column (`way`) in all tables. The application follows standard Rails conventions and all queries are placed in models inside `app/models`, mostly in `app/models/hotel.rb`. GeoJSON is generated by using a standard `st_asgeojson` function, however some postprocessing is necessary (in `app/controllers/search_controller.rb`) in order to merge all hotels into a single geojson.
+# Backend # {#be}
 
-## Api
+Backend je napísaný pomocou jednoduchého web-frameworku [Express](https://expressjs.com/) určeného pre [Node.js](https://nodejs.org/en/). 
+BE sa stará o pripojenie k databáze, obsluhu requestov a spracovanie výsledkov. Relevantnou časťou z pohľadu BE je súbor [index.js](routes/index.js).
 
-**Find hotels in proximity to coordinates**
+Na prácu s databázou bola využitá knižnica [Node Postgres](https://node-postgres.com/) a tvorbu named parametrizovaných SQL dopytov [yesql](https://www.npmjs.com/package/yesql).
 
-`GET /search?lat=25346&long=46346123`
+## Dáta
 
-**Find hotels by name, sorted by proximity and quality**
+Dáta použité pre tento projekt pochádzajú z [Open Street Maps](https://www.openstreetmap.org/) a zahŕňajú prevažnú časť východného Slovenska, časť Ukrajiny a Poľska.
+Stiahnutý súbor vo formáte `.osm` (veľkosť cca 1.02GB) som do [PostGIS](https://postgis.net/) importoval pomocou nástroja [osm2pgsql](https://wiki.openstreetmap.org/wiki/Osm2pgsql).
 
-`GET /search?name=hviezda&lat=25346&long=46346123`
+Postgre/PostGIS je prevádzkovaný ako [Docker](https://www.docker.com/) kontajner.
+
+### SQL
+
+Po importe dát som si vo všetkých tabuľkých vytvoril nový stĺpec obsahujúci geomtriu v štandarde `WGS84` pomocou transformácie pôvodnej geometrie funkciou `ST_Transform(way, 4326);`
+
+Pre urýchlenie dopytov som vytvoril v používaných tabuľkách indexy na geometrie ako aj indexy pre častou používané atribúty vo filtrovaní. 
+Na transformáciu GEO dát do formátu GeoJSON bola použitá štandardná PostGIS funkcia `ST_AsGeoJSON`.
+
+Aby bolo možné používať výsledok SQL dopytu v knižnici Leaflet, ktorá potrebuje dáta v špecifickom tvare na BE som si vytvoril nasledujúcu wrapper funkciu:
+```javascript
+function peaksForLeaflet(withDist, query) {
+    if (withDist) {
+        return `
+    SELECT row_to_json(fc)
+      FROM (SELECT 'FeatureCollection' AS type, array_to_json(array_agg(f)) AS features
+        FROM (SELECT 'Feature' AS type, ST_AsGeoJSON(p.geom)::json AS geometry, row_to_json((p.name, p.ele, ST_Distance_Spheroid(ST_Centroid(p.geom), ST_SetSRID(ST_Point(:lon, :lat),4326), 'SPHEROID["WGS 84",6378137,298.257223563]'))) AS properties ${query}
+        ) AS f
+      ) AS fc
+    `;
+    } else {
+        return `
+    SELECT row_to_json(fc)
+      FROM (SELECT 'FeatureCollection' AS type, array_to_json(array_agg(f)) AS features
+        FROM (SELECT 'Feature' AS type, ST_AsGeoJSON(p.geom)::json AS geometry, row_to_json((p.name, p.ele)) AS properties ${query}
+        ) AS f
+      ) AS fc
+    `;
+    }
+}
+```
+
+Dopyty pre všetky scenáre sa nachádzajú na BE v súbore [index.js](routes/index.js).
+Keďže mojím cieľom bolo, aby mal používateľ stále možnosť použiť pri vyhľadávaní svoju polohu vytvoril som nasledujúcu funkciu, kotrá na základe parametrov
+zo základnej query vytvorila parematrizovanú query:
+```javascript
+const distanceCondition = `AND ST_Distance_Spheroid(ST_Centroid(p.geom), ST_SetSRID(ST_Point(:lon, :lat),4326), 'SPHEROID["WGS 84",6378137,298.257223563]') < :dist`;
+
+function buildQuery(withDist, baseQuery, values = {}) {
+    return withDist ? named(peaksForLeaflet(withDist, baseQuery(distanceCondition)))(values) : named(peaksForLeaflet(withDist, baseQuery()))(values);
+}
+```
+ Príklad "základného" dopytu:
+ ```javascript
+const defaultPeaksQuery = (maybeDist = '') => {
+    return `FROM planet_osm_point AS p WHERE p.natural = 'peak' AND p.name IS NOT NULL AND p.ele IS NOT NULL ${maybeDist}`;
+};
+```
+Príklad tvorby konečného dopytu s ohľadom na polohu:
+```javascript
+buildQuery(true, defaultPeaksQuery, {lon: params.lon, lat: params.lat, dist: params.dist})
+```
+
+Zoznam použitých PostGIS funkcií:
+- použité na výpočet:
+    - **ST_Distance_Spheroid**
+    - **ST_Centroid**
+    - **ST_Contains**
+    - **ST_DWithin**
+    - **ST_Area**
+    - **ST_Intersects**
+- transformačné/pomocné:
+    - **ST_Transform**
+    - **ST_SetSRID**
+    - **ST_Point**
+
+## API # {#api}
+
+**Vyhľadanie všetkých kopcov** `GET /map?lat=&lon=&dist=&regions=` alebo iba `GET /map`
+
+**Vyhľadanie kopcov vo vybranej oblasti** `GET /map?lat=&lon=&dist=&regions=national_park`
+
+**Vyhľadanie kopcov v konkrétnom národnom parku** `GET /map?lat=&lon=&dist=&regions=Národný%20park%20Poloniny`
+
+**Vyhľadanie kopcov v danej lokalite** `GET /map?lat=49.0549702248979&lon=22.330815534843342&dist=5000&regions=`
+
+**Vyhľadanie kopcov vo vybranej oblasti vzhľadom na lokalitu** `GET /map?lat=49.0549702248979&lon=22.330815534843342&dist=5000&regions=Národný%20park%20Poloniny`
 
 ### Response
 
-API calls return json responses with 2 top-level keys, `hotels` and `geojson`. `hotels` contains an array of hotel data for the sidebar, one entry per matched hotel. Hotel attributes are (mostly self-evident):
-```
-{
-  "name": "Modra hviezda",
-  "style": "modern", # cuisine style
-  "stars": 3,
-  "address": "Panska 31"
-  "image_url": "/assets/hotels/652.png"
+Všetky uvedené API volania vracajú JSON súbor pripravený pre Leaflet, spolu s dodatočnými dátami (properties) pre každý objekt:
+```json
+{ 
+  type: 'FeatureCollection',
+  features: [
+    { 
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [ 22.265278, 49.0505559996798 ] },
+      properties: { f1: 'Gazdoráň', f2: '508', f3: 4815.51905336589 },
+    }, ... 
+  ]
 }
 ```
-`geojson` contains a geojson with locations of all matched hotels and style definitions.
