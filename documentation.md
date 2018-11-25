@@ -19,7 +19,7 @@ Kľúčové vlastnosti:
 
 Aplikácia je logicky rozdelená na 2 časti. Klientská časť predstavuje webovú aplikáciu pričom hlavnou časťou FE je [Leaflet](https://leafletjs.com/) mapový komponent.
 Backend je vytvorený pomocou minimalistického web-frameworku [Express.js](https://expressjs.com/) určeného pre [Node.js](https://nodejs.org/en/).
-GEO dáta sú uložené v [PostGIS](https://postgis.net/) a komunikáciu medzi [BE](#backend--be) a [FE](#frontend--fe) zabezpečuje [REST API](#api--api).
+GEO dáta sú uložené v [PostGIS](https://postgis.net/) a komunikáciu medzi [BE](#backend) a [FE](#frontend) zabezpečuje [REST API](#api).
 
 *Pohľad na základné filtrovanie podľa oblasti* 
 
@@ -29,7 +29,7 @@ GEO dáta sú uložené v [PostGIS](https://postgis.net/) a komunikáciu medzi [
 
 ![Vyhľadávanie podľa polohy](pdt_location.png)
 
-# Frontend # {#fe}
+# Frontend
 
 Webová aplikácia je napísaná z prevažnej časti pomocou šablónovacieho nástroja [Pug.js](https://pugjs.org), ktorý následne vygeneruje HTML, ktoré využíva štýl a komponenty z [Bootstrap](https://getbootstrap.com/).
 V HTML sa ďalej nachádzajú kúsky JS a jQuery, ktoré sa starajú o validáciu a lepšiu interaktívnosť/použiteľnosť aplikácie.
@@ -40,7 +40,7 @@ bol rozšírený o vlastné značky aktuálnej polohy, značky kopcov spolu s le
 
 Všetko spomenuté a relevantné sa nachádza v súbore [map.pug](views/map.pug).
 
-# Backend # {#be}
+# Backend
 
 Backend je napísaný pomocou jednoduchého web-frameworku [Express](https://expressjs.com/) určeného pre [Node.js](https://nodejs.org/en/). 
 BE sa stará o pripojenie k databáze, obsluhu requestov a spracovanie výsledkov. Relevantnou časťou z pohľadu BE je súbor [index.js](routes/index.js).
@@ -58,7 +58,7 @@ Postgre/PostGIS je prevádzkovaný ako [Docker](https://www.docker.com/) kontajn
 
 Po importe dát som si vo všetkých tabuľkých vytvoril nový stĺpec obsahujúci geomtriu v štandarde `WGS84` pomocou transformácie pôvodnej geometrie funkciou `ST_Transform(way, 4326);`
 
-Pre urýchlenie dopytov som vytvoril v používaných tabuľkách indexy na geometrie ako aj indexy pre častou používané atribúty vo filtrovaní. 
+Pre urýchlenie dopytov som vytvoril v používaných tabuľkách indexy na geometrie ako aj indexy pre častou používané atribúty vo filtrovaní (príklad v súbore [pdt_query.sql](pdt_query.sql)). 
 Na transformáciu GEO dát do formátu GeoJSON bola použitá štandardná PostGIS funkcia `ST_AsGeoJSON`.
 
 Aby bolo možné používať výsledok SQL dopytu v knižnici Leaflet, ktorá potrebuje dáta v špecifickom tvare na BE som si vytvoril nasledujúcu wrapper funkciu:
@@ -118,17 +118,27 @@ Zoznam použitých PostGIS funkcií:
     - **ST_SetSRID**
     - **ST_Point**
 
-## API # {#api}
+## API
 
-**Vyhľadanie všetkých kopcov** `GET /map?lat=&lon=&dist=&regions=` alebo iba `GET /map`
+**Vyhľadanie všetkých kopcov** 
 
-**Vyhľadanie kopcov vo vybranej oblasti** `GET /map?lat=&lon=&dist=&regions=national_park`
+`GET /map?lat=&lon=&dist=&regions=` alebo iba `GET /map`
 
-**Vyhľadanie kopcov v konkrétnom národnom parku** `GET /map?lat=&lon=&dist=&regions=Národný%20park%20Poloniny`
+**Vyhľadanie kopcov vo vybranej oblasti** 
 
-**Vyhľadanie kopcov v danej lokalite** `GET /map?lat=49.0549702248979&lon=22.330815534843342&dist=5000&regions=`
+`GET /map?lat=&lon=&dist=&regions=national_park`
 
-**Vyhľadanie kopcov vo vybranej oblasti vzhľadom na lokalitu** `GET /map?lat=49.0549702248979&lon=22.330815534843342&dist=5000&regions=Národný%20park%20Poloniny`
+**Vyhľadanie kopcov v konkrétnom národnom parku** 
+
+`GET /map?lat=&lon=&dist=&regions=Národný%20park%20Poloniny`
+
+**Vyhľadanie kopcov v danej lokalite** 
+
+`GET /map?lat=49.0549702248979&lon=22.330815534843342&dist=5000&regions=`
+
+**Vyhľadanie kopcov vo vybranej oblasti vzhľadom na lokalitu** 
+
+`GET /map?lat=49.0549702248979&lon=22.330815534843342&dist=5000&regions=Národný%20park%20Poloniny`
 
 ### Response
 
