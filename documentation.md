@@ -1,3 +1,5 @@
+**Autor:** Ondrej Kaščák
+
 # Prehľad
 
 Vytvorená aplikácia na mape znázorňuje kopce z prevažnej časti východného Slovenska, malej časti Ukrajiny a Poľska.
@@ -105,6 +107,61 @@ Príklad tvorby konečného dopytu s ohľadom na polohu:
 buildQuery(true, defaultPeaksQuery, {lon: params.lon, lat: params.lat, dist: params.dist})
 ```
 
+Funkcie obsahujúce SQL pre ostatné scenáre:
+```javascript
+const peaksInNationalParksQuery = (maybeDist = '') => {
+    return `
+    FROM planet_osm_point as p
+        LEFT JOIN planet_osm_polygon as polygon ON ST_Contains(polygon.geom, p.geom)
+	        WHERE polygon.boundary = 'national_park' AND p.natural = 'peak' AND p.name IS NOT NULL AND p.ele IS NOT NULL ${maybeDist}
+    `;
+};
+
+const peaksInConcreteNationalParksQuery = (maybeDist = '') => {
+    return `
+    FROM planet_osm_point as p
+        LEFT JOIN planet_osm_polygon as polygon ON ST_Contains(polygon.geom, p.geom)
+            WHERE polygon.name = ANY(:nat_park) AND p.natural = 'peak' AND p.name IS NOT NULL AND p.ele IS NOT NULL ${maybeDist}
+    `;
+};
+
+const peaksNearbyBordersQuery = (maybeDist = '') => {
+    return `
+    FROM (SELECT DISTINCT p.name, p.ele, p.geom
+        FROM planet_osm_point AS p
+	        LEFT JOIN planet_osm_line AS line ON ST_DWithin(ST_Transform(p.geom, 2163), ST_Transform(line.geom, 2163), 200)
+		        WHERE line.boundary = 'administrative' AND line.admin_level = '2' AND p.natural = 'peak' AND p.name IS NOT NULL AND p.ele IS NOT NULL ${maybeDist}) AS p
+    `;
+};
+
+const peaksNearbyRoadsInNationalParks = (maybeDist = '') => {
+    return `
+    FROM (
+        WITH park_roads AS (
+	        SELECT DISTINCT line.geom AS line_geom
+	            FROM planet_osm_line AS line 
+		            LEFT JOIN planet_osm_polygon AS poly ON ST_Intersects(poly.geom, line.geom)
+			            WHERE line.highway = ANY('{primary, secondary, tertiary, road, cycleway}'::text[]) AND poly.boundary = 'national_park'
+        ) SELECT DISTINCT p.name, p.ele, p.geom FROM park_roads
+	        LEFT JOIN planet_osm_point AS p ON ST_DWithin(ST_Transform(line_geom, 2163), ST_Transform(p.geom, 2163), 2000)
+		        WHERE p.natural = 'peak' AND p.name IS NOT NULL AND p.ele IS NOT NULL ${maybeDist}
+    ) as p
+    `;
+};
+
+const nationalParksAreaQuery = {
+    text: `
+      SELECT row_to_json(res) FROM (
+        WITH park_areas AS (SELECT p.name, ST_Area(p.geom::geography) AS area 
+          FROM planet_osm_polygon AS p
+		    WHERE p.name IN (SELECT DISTINCT(p.name) FROM planet_osm_polygon AS p WHERE p.boundary = 'national_park')
+        ) SELECT park_areas.name, ROUND(CAST(float8 (SUM(park_areas.area) / 1000000) AS numeric), 2) AS area
+	        FROM park_areas		
+	        GROUP BY park_areas.name
+	        ORDER BY area DESC) AS res
+    `
+};
+```
 Zoznam použitých PostGIS funkcií:
 - použité na výpočet:
     - **ST_Distance_Spheroid**
